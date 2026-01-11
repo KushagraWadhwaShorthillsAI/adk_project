@@ -35,13 +35,14 @@ def compute_resume_job_match(resume, jobs) -> Dict[str, Any]:
         edu_req = job.get("education_level", "").lower()
 
         # 3. Enhanced Matching Logic
-        # Jaccard Similarity for Skills
+        # Simplified Match Percentage for Skills
         if not job_skills:
             skill_match = 0.0
+            matched_skills = []
         else:
-            intersection = len(resume_skills.intersection(job_skills))
-            union = len(resume_skills.union(job_skills))
-            skill_match = intersection / union if union > 0 else 0.0
+            intersection_set = resume_skills.intersection(job_skills)
+            skill_match = len(intersection_set) / len(job_skills)
+            matched_skills = list(intersection_set)
 
         # Experience Fit (Non-linear penalty)
         if min_exp <= 0:
@@ -74,13 +75,19 @@ def compute_resume_job_match(resume, jobs) -> Dict[str, Any]:
             "url": job.get("redirect_url") or job.get("url"), # Handle different key names
             "score": round(final_score, 1),
             "match_graph": _generate_ascii_bar(final_score),
+            "skill_match_percentage": round(skill_match * 100, 1),
             "skill_match_graph": _generate_ascii_bar(skill_match * 100),
-            "missing_skills": list(job_skills - resume_skills)[:5] # Top 5 missing skills
+            "matched_skills": matched_skills,
+            "missing_skills": list(job_skills - resume_skills)[:5], # Top 5 missing skills
+            "salary": job.get("salary", "Not Disclosed"),
+            "is_remote": job.get("is_remote", False),
+            "posted_at": job.get("posted_at", ""),
+            "highlights": job.get("highlights", {})
         })
 
     # Sort by score
     job_scores.sort(key=lambda x: x["score"], reverse=True)
-    top_jobs = job_scores[:5]
+    top_jobs = job_scores[:10]
 
     return {
         "top_matches": top_jobs,
