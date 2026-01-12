@@ -48,6 +48,7 @@ resume_agent/
 The agent follows a strict, autonomous 5-step pipeline:
 
 1.  **Ingest Resume**: The user uploads a PDF or provides a local file path.
+    > **Note**: For CLI usage, verify your resume is in `resume_agent/data/resume.pdf`. For the Web UI, simply upload the file directly when prompted.
 2.  **Analyze**: The agent extracts skills, total years of experience, and highest education level.
 3.  **Search**: It performs a live search for jobs matching the extracted profile (e.g., "Software Engineer") and filters results by the user's experience.
 4.  **Match**: It calls the matching tool to compute a weighted score for every job found.
