@@ -13,7 +13,7 @@ def compute_resume_job_match(resume, jobs) -> Dict[str, Any]:
     # 1. Normalize Resume Data
     if isinstance(resume, str):
         resume_skills = set(resume.lower().split())
-        resume_exp = 5
+        resume_exp = 1
         resume_edu = "bachelor"
     else:
         resume_skills = set(s.lower() for s in resume.get("skills", []))
@@ -51,7 +51,6 @@ def compute_resume_job_match(resume, jobs) -> Dict[str, Any]:
             # Allow for some flexibility (e.g. 0.8 years ~= 1 year)
             ratio = resume_exp / min_exp
             exp_fit = min(ratio, 1.0)
-            if ratio < 0.5: exp_fit *= 0.5 # Heavy penalty if less than half required exp
 
         # Education Match
         edu_fit = 1.0
