@@ -7,11 +7,23 @@ from typing import List, Dict
 def search_jobs_jsearch(
     keywords: str,
     country: str = "in",
-    max_results: int = 20
+    max_results: int = 20,
+    user_experience_years: int = None
 ) -> List[Dict]:
     """
     Searches live job market using JSearch API (RapidAPI) with robust skill extraction.
+    Filters jobs to match user's experience level.
+    
+    Args:
+        keywords: Job titles to search for
+        country: Country code (default: "in")
+        max_results: Maximum results to return
+        user_experience_years: User's total years of experience (filters jobs requiring <= this)
     """
+    print(f"\n{'='*60}")
+    print(f"🔧 TOOL CALLED: search_jobs_jsearch")
+    print(f"🔍 Input: keywords='{keywords}', country='{country}', max_results={max_results}, user_experience={user_experience_years}")
+    print(f"{'='*60}\n")
 
     api_key = os.getenv("RAPID_API_KEY")
     api_host = os.getenv("RAPID_API_HOST")
@@ -19,10 +31,8 @@ def search_jobs_jsearch(
     if not api_key or not api_host:
         raise RuntimeError("RapidAPI credentials (RAPID_API_KEY, RAPID_API_HOST) not found in environment.")
 
-    # Clean keywords: strip commas and extra whitespace
     keywords = keywords.replace(',', ' ').strip()
     if not keywords:
-        # Fallback to a general tech search if keywords is empty
         keywords = "Software Engineer"
 
     url = f"https://{api_host}/search"
@@ -50,27 +60,17 @@ def search_jobs_jsearch(
     data = response.json()
     jobs = []
 
-    # Smarter & Comprehensive Tech Anchors
     TECH_ANCHORS = {
-        # Languages
         'python', 'java', 'javascript', 'typescript', 'c++', 'c#', 'php', 'ruby', 'go', 'rust', 'kotlin', 'swift', 'scala', 'dart', 'solidity',
-        # Web & Frontend
         'react', 'angular', 'vue', 'nextjs', 'next.js', 'remix', 'svelte', 'jquery', 'tailwind', 'bootstrap', 'sass', 'html', 'css', 'webpack', 'vite',
-        # Backend & APIs
         'nodejs', 'node.js', 'django', 'flask', 'fastapi', 'express', 'spring', 'laravel', 'symfony', 'rails', 'graphql', 'rest', 'bridge', 'grpc',
-        # Data Science & AI
         'ml', 'ai', 'nlp', 'pytorch', 'tensorflow', 'keras', 'scikit-learn', 'sklearn', 'pandas', 'numpy', 'opencv', 'huggingface', 'transformers', 'bert', 'gpt', 'llm', 'langchain', 'llama',
-        # Cloud & DevOps
         'aws', 'azure', 'gcp', 'google cloud', 'docker', 'kubernetes', 'k8s', 'jenkins', 'terraform', 'ansible', 'git', 'github', 'gitlab', 'ci/cd', 'nginx', 'apache',
-        # Databases & Cache
         'sql', 'mysql', 'postgresql', 'postgres', 'mongodb', 'mongo', 'redis', 'elasticsearch', 'cassandra', 'dynamodb', 'sqlite', 'mariadb', 'pinecone', 'milvus',
-        # Mobile & Desktop
         'flutter', 'react native', 'ios', 'android', 'electron', 'unity', 'unreal',
-        # Roles & Methodologies
         'fullstack', 'frontend', 'backend', 'devops', 'architect', 'agile', 'scrum', 'kanban', 'qa', 'automated testing', 'selenium', 'playwright', 'cypress'
     }
 
-    # Common variation map for normalization
     VARIATION_MAP = {
         'nodejs': 'node.js', 'node js': 'node.js',
         'reactjs': 'react', 'react js': 'react',
@@ -83,7 +83,6 @@ def search_jobs_jsearch(
         description = job.get("job_description", "")
         title = job.get("job_title", "")
         
-        # Combine title, description, and highlights for better skill extraction
         highlights = job.get("job_highlights", {})
         qualifications = " ".join(highlights.get("Qualifications", []))
         responsibilities = " ".join(highlights.get("Responsibilities", []))
@@ -91,30 +90,24 @@ def search_jobs_jsearch(
         
         searchable_text = f"{title} {description} {qualifications} {responsibilities}".lower()
         
-        # Inlined Robust Extraction
         found_skills = set()
         
-        # 1. Direct Anchor Matching (Permissive)
         for anchor in TECH_ANCHORS:
-            # Match strictly with boundaries for short words, more relaxed for long ones
             pattern = rf'\b{re.escape(anchor)}\b' if len(anchor) < 6 else re.escape(anchor)
             if re.search(pattern, searchable_text):
-                # Normalize and Add
                 found_skills.add(VARIATION_MAP.get(anchor, anchor))
         
-        # 2. Regex for specialty formats (C++, C#, .NET, etc.)
         patterns = [
-            r'\b[a-z]{1,2}\+\+\b',       # C++
-            r'\b[a-z]{1,2}#\b',          # C#
-            r'\b\.net\b',                 # .NET
-            r'\b[a-z0-9]+\.[a-z]+\b',    # Node.js, .NET
-            r'\b[a-z]+-[0-9]+\b'          # AWS-3, etc
+            r'\b[a-z]{1,2}\+\+\b',
+            r'\b[a-z]{1,2}#\b',
+            r'\b\.net\b',
+            r'\b[a-z0-9]+\.[a-z]+\b',
+            r'\b[a-z]+-[0-9]+\b'
         ]
         for p in patterns:
             for match in re.findall(p, searchable_text):
                 found_skills.add(match)
 
-        # Basic Experience & Education heuristics
         min_years = 1
         exp_match = re.search(r'(\d+)\+?\s*years?', searchable_text)
         if exp_match:
@@ -128,7 +121,6 @@ def search_jobs_jsearch(
 
         location = f"{job.get('job_city', '')}, {job.get('job_state', '')}, {job.get('job_country', '')}".strip(", ")
 
-        # Salary formatting
         min_sal = job.get("job_min_salary")
         max_sal = job.get("job_max_salary")
         period = job.get("job_salary_period", "YEAR")
@@ -142,18 +134,35 @@ def search_jobs_jsearch(
             "title": title,
             "company": job.get("employer_name"),
             "location": location or ("Remote" if job.get("job_is_remote") else "N/A"),
-            "redirect_url": job.get("job_apply_link"), 
-            "description": description[:500] + "...", # Truncate for efficiency
+            "redirect_url": job.get("job_apply_link"),
+            "description": description[:500] + "...",
             "skills": list(found_skills),
-            "min_experience": min_years, 
+            "min_experience": min_years,
             "education_level": edu_level,
             "salary": salary_str,
             "is_remote": job.get("job_is_remote", False),
             "posted_at": job.get("job_posted_at_datetime_utc", ""),
             "highlights": {
-                "qualifications": highlights.get("Qualifications", [])[:3], # Top 3
-                "responsibilities": highlights.get("Responsibilities", [])[:3] # Top 3
+                "qualifications": highlights.get("Qualifications", [])[:3],
+                "responsibilities": highlights.get("Responsibilities", [])[:3]
             }
         })
 
-    return jobs[:max_results]
+    if user_experience_years is not None:
+        filtered_jobs = []
+        for job in jobs:
+            job_min_exp = job.get("min_experience", 0)
+            if job_min_exp == 0 or job_min_exp <= user_experience_years:
+                filtered_jobs.append(job)
+        
+        print(f"📊 Experience Filter: {len(jobs)} jobs found, {len(filtered_jobs)} match experience level (<= {user_experience_years} years)")
+        jobs = filtered_jobs
+
+    result = jobs[:max_results]
+    print(f"\n{'='*60}")
+    print(f"✅ TOOL COMPLETED: search_jobs_jsearch")
+    print(f"📊 Output: Returned {len(result)} jobs")
+    if user_experience_years:
+        print(f"🎯 Filtered for jobs requiring <= {user_experience_years} years experience")
+    print(f"{'='*60}\n")
+    return result
