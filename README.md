@@ -62,7 +62,16 @@ This tool is more than a simple API wrapper; it acts as a normalization layer be
 - **Smart Experience Filtering**: The tool accepts a `user_experience_years` argument. It explicitly parses "Minimum Experience" from job descriptions and discards listings where the requirement exceeds the user's actual tenure, ensuring 100% relevant results.
 - **Data Normalization**: Handles diverse salary formats (hourly, annually, ranges) and location data to provide a cleaner output for the LLM to read.
 
-### 2. Matching Engine (`tools/ds_match_tool.py`)
+### 2. PDF Ingestion & Analysis (`tools/pdf_tool.py`)
+Ensures robust handling of user-uploaded resumes before any analysis begins.
+- **Smart File Resolution**: Features a recursive search algorithm `find_pdf_file` that locates documents even if the user provides an incomplete path or if the file waits in a subfolder (like `uploads/` or `data/`).
+- **Robust Extraction**: Utilizes `pdfplumber` to extract structured text layout.
+- **Safety & Validation**: 
+  - Detects and flags scanned/image-only PDFs (empty text return).
+  - Truncates extremely large files (15k+ chars) to prevent context window overflow.
+  - Validates file extensions and existence before processing.
+
+### 3. Matching Engine (`tools/ds_match_tool.py`)
 A deterministic, non-hallucinating scoring system designed to give candidates a realistic view of their fit.
 - **The Scoring Algorithm**:
   \[
